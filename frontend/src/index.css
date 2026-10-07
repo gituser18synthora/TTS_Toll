@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  /* Latin from the OS; Indic glyphs fall through to the bundled Noto fonts */
+  --font-sans: ui-sans-serif, system-ui, "Segoe UI", "Noto Sans Devanagari", "Noto Sans Tamil", "Noto Sans Telugu",
+    "Noto Sans Malayalam", "Nirmala UI", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-slate-100 text-slate-800 antialiased; }
+
+/* transcript box: comfortable reading for all scripts */
+.transcript { line-height: 1.7; font-size: 1.125rem; }
+
+kbd {
+  @apply inline-block min-w-[1.4em] rounded border border-slate-300 bg-white px-1 text-center font-mono text-[11px] leading-5 text-slate-600 shadow-[0_1px_0_rgba(0,0,0,0.08)];
+}
+
+/* chart tokens (dataviz reference palette, light): roles, not raw hex, inside charts */
+:root {
+  --viz-surface: #fcfcfb;
+  --viz-page: #f9f9f7;
+  --viz-text-1: #0b0b0b;
+  --viz-text-2: #52514e;
+  --viz-text-3: #898781;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-border: rgba(11, 11, 11, 0.1);
+  --viz-tooltip: #ffffff;
+  --viz-series-1: #2a78d6;   /* categorical slot 1: single-series charts */
+  --viz-good: #0ca30c;       /* status: approved (always with ✓ + label) */
+  --viz-critical: #d03b3b;   /* status: rejected (always with ✕ + label) */
+  --viz-neutral: #a3a198;    /* de-emphasis: pending */
+}

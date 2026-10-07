@@ -1,0 +1,7 @@
+# Installed by setup.sh from the PyTorch index matching the machine:
+#   CPU:  --index-url https://download.pytorch.org/whl/cpu
+#   GPU:  --index-url https://download.pytorch.org/whl/cu128   (or cu126 for older drivers)
+# Keep CUDA 12.x builds: ctranslate2 (faster-whisper) links against CUDA 12 libraries.
+torch==2.11.0
+torchaudio==2.11.0
+torchcodec==0.11.1   # built for torch 2.11 (pyannote.audio needs it); same index as torch

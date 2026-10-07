@@ -1,0 +1,41 @@
+# CPU:  docker compose up -d --build                  -> UI + API on http://127.0.0.1:8000
+# GPU:  TORCH_VARIANT=cu128 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+# Data and models live on the host (./data, ./models), so they move with the project folder.
+name: orpheus-portal
+
+x-portal: &portal
+  build:
+    context: .
+    args:
+      TORCH_VARIANT: ${TORCH_VARIANT:-cpu}
+      APT_CLOCK_SKEW_OK: ${APT_CLOCK_SKEW_OK:-false}
+  image: orpheus-portal:${TORCH_VARIANT:-cpu}
+  user: "${PORTAL_UID:-1000}:${PORTAL_GID:-1000}"   # files in ./data stay owned by you
+  env_file:
+    - path: .env          # HF_TOKEN (optional)
+      required: false
+  volumes:
+    - ${PORTAL_DATA_DIR:-./data}:/data
+    - ${PORTAL_MODELS_HOST_DIR:-./models}:/models
+    - ./config.yaml:/app/config.yaml:ro
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *portal
+    ports:
+      - "127.0.0.1:${PORTAL_PORT:-8000}:8000"   # localhost only: the portal has no login
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *portal
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api:
+        condition: service_healthy   # the API creates / migrates the database
+    stop_grace_period: 60s           # SIGTERM re-queues the running job; it resumes on restart

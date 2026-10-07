@@ -1,0 +1,5 @@
+# Installed with `pip install --no-deps -r requirements-nodeps.txt` (setup.sh does this).
+# DeepFilterNet's metadata pins numpy<2 and packaging<24; both are outdated pins and the
+# package works with numpy 2.x (verified by backend/tests/test_models_optional.py).
+deepfilternet==0.5.6
+deepfilterlib==0.5.6    # compiled wheels exist for CPython <= 3.11 (another reason for Python 3.11)

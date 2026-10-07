@@ -1,0 +1,13 @@
+# never bake data, models, secrets or local environments into the image
+data/
+models/
+.env
+.venv/
+.venv-*/
+env/
+frontend/node_modules/
+frontend/dist/
+**/__pycache__/
+**/.pytest_cache/
+*.log
+.git/

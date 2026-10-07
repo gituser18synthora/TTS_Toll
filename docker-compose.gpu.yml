@@ -1,0 +1,11 @@
+# GPU override: the worker gets the NVIDIA GPU(s). Needs the NVIDIA Container Toolkit on the host.
+#   TORCH_VARIANT=cu128 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+services:
+  worker:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

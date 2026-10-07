@@ -1,0 +1,50 @@
+# Orpheus TTS dataset portal: Python dependencies (Python 3.11; 3.11-3.12 supported).
+#
+# torch / torchaudio are pinned in requirements-torch.txt because their wheel
+# index differs between CPU and CUDA machines; setup.sh picks the right one.
+# constraints.txt pins every transitive dependency for reproducible installs:
+#   pip install -r requirements.txt -c constraints.txt
+
+# DeepFilterNet is listed in requirements-nodeps.txt (installed with --no-deps: its metadata
+# pins numpy<2 / packaging<24, which are outdated; it runs fine with the versions here).
+
+# --- web / API
+fastapi==0.142.2
+starlette==1.7.0
+uvicorn[standard]==0.54.0
+SQLAlchemy==2.1.3
+pydantic==2.13.5
+PyYAML==6.0.3
+python-dotenv==1.2.4
+
+# --- audio
+numpy==2.4.6
+scipy==1.17.1
+soundfile==0.14.0
+pyloudnorm==0.2.0
+
+# --- models (lazy-loaded; each has a fallback when missing)
+silero-vad==6.2.3
+onnxruntime==1.30.0
+faster-whisper==1.2.1
+ctranslate2==4.8.2
+huggingface_hub==1.33.0
+transformers==5.19.0      # IndicConformer (trust_remote_code) + AudioSet tagger
+pyannote.audio==4.0.7     # diarization (multi-speaker files) + speaker embeddings (consistency check)
+onnx==1.23.2              # required by IndicConformer's remote code
+loguru==0.7.3             # DeepFilterNet runtime deps
+appdirs==1.4.4
+requests==2.34.2
+
+# --- export
+datasets==5.1.0
+pyarrow==25.0.1
+
+# --- text
+num2words==0.5.14
+indic-transliteration==2.3.82
+
+# --- tests
+pytest==9.1.1
+httpx==0.28.1
+httpx2==2.13.1

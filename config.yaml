@@ -1,0 +1,144 @@
+# ---------------------------------------------------------------------------
+# Orpheus TTS Dataset Portal — configuration
+#
+# Relative paths are resolved against the directory containing this file.
+# Override the file location with PORTAL_CONFIG=/path/to/config.yaml.
+# Quick overrides via env: PORTAL_DATA_ROOT, PORTAL_DEVICE.
+# ---------------------------------------------------------------------------
+
+paths:
+  # DATA_ROOT: raw uploads, derived audio, clips, exports, logs and the SQLite DB.
+  # Every path stored in the DB is relative to this folder, so moving this one
+  # folder (e.g. rsync to the GPU server) moves the whole dataset.
+  data_root: ./data
+  # Model weight cache (faster-whisper, torch hub, HuggingFace).
+  models_dir: ./models
+
+# auto = cuda if available, else cpu
+device: auto
+
+server:
+  host: 127.0.0.1
+  port: 8000
+  cors_origins: ["http://localhost:5173", "http://127.0.0.1:5173"]
+
+worker:
+  # false: the worker runs as its own process (run_dev.sh starts it).
+  # true:  the API process also runs the worker in a background thread.
+  embedded: false
+  poll_interval_sec: 2.0
+  # A "running" job whose heartbeat is older than this is assumed dead and is
+  # re-queued; it then resumes from its last completed step.
+  stale_job_sec: 180
+
+upload:
+  allowed_extensions: [wav, mp3, m4a, flac, ogg]
+  max_file_gb: 4
+
+audio:
+  sample_rate: 24000        # Orpheus / SNAC requirement: 24 kHz mono 16-bit
+  ffmpeg: ffmpeg
+  ffprobe: ffprobe
+
+vad:
+  engine: silero            # silero | energy   (energy is also the automatic fallback)
+  threshold: 0.5            # speech probability threshold
+  neg_threshold: null       # exit threshold; null = threshold - 0.15
+  min_speech_ms: 250        # isolated speech blips shorter than this are ignored
+  min_silence_ms: 150       # pauses shorter than this are never used as cut points
+
+segmentation:
+  min_duration: 2.0         # seconds; shorter clips are kept but rejected (too_short)
+  max_duration: 15.0        # preferred upper bound
+  hard_max_duration: 20.0   # absolute upper bound
+  target_duration: 8.0      # mild preference when several cut plans are equally natural
+  padding_ms: 150           # silence kept before/after speech (100–200 recommended)
+  max_pause_in_clip: 1.2    # never merge speech across a pause longer than this (seconds)
+
+denoise:
+  engine: deepfilternet     # deepfilternet | none   (skipped with a warning if DeepFilterNet is unavailable)
+  atten_lim_db: null        # e.g. 25 keeps a faint natural noise floor and avoids over-suppression artifacts
+  chunk_sec: 30             # processing chunk length (memory stays flat for any recording length)
+
+diarization:               # only for uploads marked "multiple speakers in this file"
+  engine: pyannote          # pyannote (gated: accept terms with the HF_TOKEN account) | clustering
+  model: pyannote/speaker-diarization-community-1
+  max_speakers: 8
+  cluster_threshold: 0.7    # clustering fallback: cosine distance for windows to join a speaker
+  overlap_flag_sec: 0.1     # clips with more overlapped speech than this are flagged "overlap"
+  overlap_reject_ratio: 0.3 # ... and rejected if overlap covers more than this share of the clip
+
+clip:
+  trim_top_db: 40           # frames quieter than (loudest frame - top_db) count as silence when trimming
+  target_lufs: -23.0
+  peak_dbfs: -1.0           # limiter ceiling
+  max_gain_db: 30.0         # never boost a clip by more than this
+
+quality:
+  engine: dnsmos            # dnsmos | snr   (dnsmos falls back to an SNR estimate if its model is unavailable)
+  reject_below: 2.0         # DNSMOS OVRL (1-5); pending clips below are auto-rejected as low_quality
+  review_below: 2.9         # clips below this are flagged borderline_quality for a listen
+  tagger:                   # AudioSet tagger flagging music / babble (overlapping background talk)
+    enabled: auto           # auto = only on GPU (~2 s per clip on CPU) | true | false
+    model: MIT/ast-finetuned-audioset-10-10-0.4593
+    music_threshold: 0.30
+    babble_threshold: 0.30
+
+speaker_check:              # flags clips whose voice doesn't match the rest of the speaker's clips
+  enabled: true
+  model: pyannote/wespeaker-voxceleb-resnet34-LM   # 256-d embeddings, not gated
+  min_similarity: 0.5       # cosine to the speaker's centroid (same voice ~0.75-0.85, other voices ~0.1)
+  min_clips: 5
+
+dedup:
+  enabled: true
+  min_similarity: 0.8       # same transcript + waveform correlation above this = same recording
+
+asr:
+  primary:
+    engine: faster-whisper  # faster-whisper | none (manual transcription)
+    model_cpu: small        # small / medium on CPU
+    model_gpu: large-v3
+    compute_type_cpu: int8
+    compute_type_gpu: float16
+    beam_size: 5
+    cpu_threads: 0          # 0 = library default
+  secondary:                # second opinion -> asr_agreement (WER between the two outputs)
+    engine: indicconformer  # indicconformer | faster-whisper | none
+    indicconformer:         # gated model: needs HF_TOKEN in .env for an account that accepted its terms
+      model: ai4bharat/indic-conformer-600m-multilingual
+      languages: [hi, ta, te, ml]
+      decoding: ctc         # ctc | rnnt
+    # Second whisper pass for en / hinglish, and the fallback when IndicConformer is unavailable.
+    # Must differ from the primary size so the two opinions are independent.
+    whisper_cpu: medium
+    whisper_gpu: medium
+  agreement:                # WER above which a clip is flagged asr_disagreement
+    max_wer: {default: 0.30, en: 0.20, hi: 0.25, hinglish: 0.35, ta: 0.45, te: 0.40, ml: 0.45}
+  # Which output becomes the default editable transcript (per language): primary | secondary
+  transcript_source: {default: primary}
+  # Clips are flagged needs_review when the primary ASR looks unreliable.
+  review:
+    min_avg_logprob: -1.0
+    max_no_speech_prob: 0.6
+    max_compression_ratio: 2.4
+    min_chars_per_sec: 2.0  # far fewer characters than the clip length suggests → truncated/missing text
+
+# Language codes used across the portal; `whisper` is the language hint passed to ASR.
+languages:
+  hi:       {name: Hindi,     whisper: hi}
+  en:       {name: English,   whisper: en}
+  hinglish: {name: Hinglish,  whisper: hi}   # code-mixed: Hindi hint, English words kept as spoken
+  # Optional: a code-mixed example nudges whisper to write English words in Latin script.
+  # (Off by default: on unclear audio whisper can echo the prompt back.)
+  # hinglish: {name: Hinglish, whisper: hi, initial_prompt: "मैं office जा रहा हूँ, meeting के बाद call करूँगा।"}
+  ta:       {name: Tamil,     whisper: ta}
+  te:       {name: Telugu,    whisper: te}
+  ml:       {name: Malayalam, whisper: ml}
+
+text:
+  # Stored transcripts are canonical Devanagari for hi / hinglish; English words stay in Latin
+  # script exactly as the ASR wrote them. Romanization happens only at export (script: roman | both).
+  roman_scheme: hinglish    # hinglish (aaj, achha, hoon) | iso | iast | itrans
+  # Language whose words are used to read digits aloud (default: the clip's own language).
+  numbers_language: {hinglish: hi}
